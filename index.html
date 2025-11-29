@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>手机贪吃蛇</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: "微软雅黑", sans-serif;
+            padding: 10px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #34c759;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        .score {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        #gameCanvas {
+            border: 2px solid #34c759;
+            background: #111;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 4/3; /* 固定宽高比，适配手机 */
+            image-rendering: pixelated;
+        }
+        /* 屏幕方向键（手机触屏用） */
+        .controls {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 10px;
+            margin-top: 15px;
+            width: 200px;
+        }
+        .ctrl-btn {
+            width: 60px;
+            height: 60px;
+            background: #333;
+            border: 2px solid #34c759;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation; /* 防止触屏延迟 */
+        }
+        .up { grid-area: up; }
+        .down { grid-area: down; }
+        .left { grid-area: left; }
+        .right { grid-area: right; }
+    </style>
+</head>
+<body>
+    <h1>手机贪吃蛇</h1>
+    <div class="score">得分：<span id="score">0</span></div>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls">
+        <button class="ctrl-btn up">↑</button>
+        <button class="ctrl-btn down">↓</button>
+        <button class="ctrl-btn left">←</button>
+        <button class="ctrl-btn right">→</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDom = document.getElementById('score');
+        const ctrlBtns = document.querySelectorAll('.ctrl-btn');
+        
+        // 适配手机屏幕
+        const canvasWidth = Math.min(window.innerWidth - 20, 400);
+        canvas.width = canvasWidth;
+        canvas.height = canvasWidth * 3 / 4; // 4:3比例
+        
+        // 游戏参数
+        const grid = 15; // 适配手机小屏幕
+        const maxX = Math.floor(canvas.width / grid);
+        const maxY = Math.floor(canvas.height / grid);
+        
+        // 蛇状态
+        let snake = [{x: 5, y: 5}];
+        let dir = 'right';
+        let food = getFood();
+        let score = 0;
+        let timer = null;
+        let startX, startY; // 触屏滑动用
+
+        // 生成食物
+        function getFood() {
+            let f;
+            do {
+                f = {
+                    x: Math.floor(Math.random() * maxX),
+                    y: Math.floor(Math.random() * maxY)
+                };
+            } while (snake.some(s => s.x === f.x && s.y === f.y));
+            return f;
+        }
+
+        // 绘制蛇
+        function drawSnake() {
+            ctx.fillStyle = '#34c759';
+            snake.forEach(s => {
+                ctx.fillRect(s.x*grid, s.y*grid, grid-1, grid-1);
+            });
+        }
+
+        // 绘制食物
+        function drawFood() {
+            ctx.fillStyle = '#ff3b30';
+            ctx.fillRect(food.x*grid, food.y*grid, grid-1, grid-1);
+        }
+
+        // 更新游戏
+        function update() {
+            const head = {...snake[0]};
+            // 移动蛇头
+            switch(dir) {
+                case 'up': head.y--; break;
+                case 'down': head.y++; break;
+                case 'left': head.x--; break;
+                case 'right': head.x++; break;
+            }
+            snake.unshift(head);
+
+            // 吃食物
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreDom.innerText = score;
+                food = getFood();
+            } else {
+                snake.pop();
+            }
+
+            // 游戏结束
+            if (
+                head.x < 0 || head.x >= maxX ||
+                head.y < 0 || head.y >= maxY ||
+                snake.slice(1).some(s => s.x === head.x && s.y === head.y)
+            ) {
+                clearInterval(timer);
+                alert(`游戏结束！得分：${score}\n点击方向键重新开始`);
+                resetGame();
+            }
+        }
+
+        // 重置游戏
+        function resetGame() {
+            snake = [{x: 5, y: 5}];
+            dir = 'right';
+            score = 0;
+            scoreDom.innerText = '0';
+            food = getFood();
+            timer = null;
+        }
+
+        // 绘制游戏
+        function draw() {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawSnake();
+            drawFood();
+        }
+
+        // 开始游戏
+        function startGame() {
+            if (!timer) {
+                timer = setInterval(() => {
+                    update();
+                    draw();
+                }, 200); // 手机上更慢的速度，方便操作
+            }
+        }
+
+        // 控制方向
+        function setDir(newDir) {
+            // 防止反向
+            if (
+                (newDir === 'up' && dir !== 'down') ||
+                (newDir === 'down' && dir !== 'up') ||
+                (newDir === 'left' && dir !== 'right') ||
+                (newDir === 'right' && dir !== 'left')
+            ) {
+                dir = newDir;
+                startGame();
+            }
+        }
+
+        // 屏幕方向键事件
+        ctrlBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setDir(btn.classList[1]);
+            });
+        });
+
+        // 触屏滑动控制（手机更方便）
+        canvas.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        });
+        canvas.addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const diffX = endX - startX;
+            const diffY = endY - startY;
+            
+            // 判断滑动方向
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                setDir(diffX > 0 ? 'right' : 'left');
+            } else {
+                setDir(diffY > 0 ? 'down' : 'up');
+            }
+        });
+
+        // 初始绘制
+        draw();
+    </script>
+</body>
+</html>
